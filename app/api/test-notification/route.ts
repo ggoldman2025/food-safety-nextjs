@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 import twilio from "twilio"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null
+
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null
@@ -18,7 +21,13 @@ export async function POST(req: NextRequest) {
 
     // Test Email Notification
     if (type === "email" || type === "both") {
-      try {
+      if (!resend) {
+        results.email = {
+          success: false,
+          error: "Resend not configured. Set RESEND_API_KEY",
+        }
+      } else {
+        try {
         const emailResult = await resend.emails.send({
           from: "Food Safety Plus <notifications@foodsafetyplus.com>",
           to: [email || "gtgoldman@gmail.com"],
@@ -53,6 +62,7 @@ export async function POST(req: NextRequest) {
         results.email = {
           success: false,
           error: error.message,
+        }
         }
       }
     }
