@@ -3,12 +3,21 @@ import { getServerSession } from "next-auth"
 import Stripe from "stripe"
 import { authOptions } from "@/lib/auth"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-})
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-11-17.clover",
+    })
+  : null
 
 export async function POST(req: NextRequest) {
   try {
+    if (!stripe) {
+      return NextResponse.json(
+        { error: "Stripe not configured" },
+        { status: 500 }
+      )
+    }
+
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
