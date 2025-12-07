@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
         const emailResult = await resend.emails.send({
-          from: "Food Safety Plus <notifications@foodsafetyplus.com>",
+          from: "Food Safety Plus <onboarding@resend.dev>",
           to: [email || "gtgoldman@gmail.com"],
           subject: "🔔 Test Notification - Food Safety Plus",
           html: `
