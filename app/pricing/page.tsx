@@ -1,7 +1,42 @@
+"use client"
+
 import Link from "next/link"
 import { ShieldCheck } from "lucide-react"
+import { useState } from "react"
+import { useSession } from "next-auth/react"
 
 export default function Pricing() {
+  const { data: session } = useSession()
+  const [loading, setLoading] = useState(false)
+
+  const handleUpgrade = async () => {
+    if (!session) {
+      // Redirect to signup if not logged in
+      window.location.href = "/signup"
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("Failed to create checkout session. Please try again.")
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error("Checkout error:", error)
+      alert("An error occurred. Please try again.")
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <nav className="border-b border-gray-200 bg-white shadow-sm">
@@ -10,7 +45,11 @@ export default function Pricing() {
             <ShieldCheck className="w-6 h-6 text-blue-600" />
             <span className="text-xl font-bold text-gray-900">Food Safety Plus</span>
           </Link>
-          <Link href="/signin" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Sign In</Link>
+          {session ? (
+            <Link href="/dashboard" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Dashboard</Link>
+          ) : (
+            <Link href="/signin" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Sign In</Link>
+          )}
         </div>
       </nav>
 
@@ -62,9 +101,13 @@ export default function Pricing() {
                 <span>Priority support</span>
               </li>
             </ul>
-            <Link href="/signup" className="block text-center px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-semibold shadow-lg transition-all">
-              Upgrade to Premium
-            </Link>
+            <button
+              onClick={handleUpgrade}
+              disabled={loading}
+              className="w-full px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-semibold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Loading..." : "Upgrade to Premium"}
+            </button>
           </div>
         </div>
       </main>
