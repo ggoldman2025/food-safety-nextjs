@@ -7,7 +7,7 @@
 - [x] Protected routes working
 
 ## In Progress
-- [ ] Fix Stripe integration - pricing page button routing
+- [x] Fix Stripe integration - pricing page button routing
 - [ ] Fix pricing page header to show user status when logged in
 - [ ] Implement email notification system
 - [ ] Implement SMS notification system
