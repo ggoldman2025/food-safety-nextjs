@@ -28,9 +28,15 @@ async function fetchFDARecalls() {
     const startDate = getBusinessDaysAgo(5);
     const formattedDate = startDate.toISOString().split('T')[0].replace(/-/g, '');
     
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(
-      `https://api.fda.gov/food/enforcement.json?search=report_date:[${formattedDate}+TO+${new Date().toISOString().split('T')[0].replace(/-/g, '')}]&limit=100`
+      `https://api.fda.gov/food/enforcement.json?search=report_date:[${formattedDate}+TO+${new Date().toISOString().split('T')[0].replace(/-/g, '')}]&limit=100`,
+      { signal: controller.signal }
     );
+    
+    clearTimeout(timeout);
     
     if (!response.ok) {
       throw new Error(`FDA API error: ${response.status}`);
@@ -44,8 +50,43 @@ async function fetchFDARecalls() {
   }
 }
 
+// Fetch USDA recalls from the last 5 business days
+async function fetchUSDARecalls() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout for USDA (it's slow)
+    
+    const response = await fetch(
+      'https://www.fsis.usda.gov/fsis/api/recall/v/1',
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`USDA API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Filter USDA recalls from the last 5 business days
+    const startDate = getBusinessDaysAgo(5);
+    const filtered = data.filter((recall: any) => {
+      if (!recall.field_recall_date) return false;
+      const recallDate = new Date(recall.field_recall_date);
+      return recallDate >= startDate;
+    });
+    
+    return filtered || [];
+  } catch (error) {
+    console.error('Error fetching USDA recalls:', error);
+    // Don't fail the entire job if USDA times out
+    return [];
+  }
+}
+
 // Send email to all subscribers
-async function sendEmailToSubscribers(recalls: any[]) {
+async function sendEmailToSubscribers(fdaRecalls: any[], usdaRecalls: any[]) {
   try {
     // Get all users with email notifications enabled
     const users = await prisma.user.findMany({
@@ -68,12 +109,29 @@ async function sendEmailToSubscribers(recalls: any[]) {
     let sent = 0;
     let failed = 0;
     
-    // Prepare email content
-    const recallList = recalls.slice(0, 10).map((recall, index) => 
-      `${index + 1}. ${recall.product_description || 'Unknown Product'}
-   Reason: ${recall.reason_for_recall || 'Not specified'}
-   Company: ${recall.recalling_firm || 'Unknown'}
-   Date: ${recall.report_date || 'Unknown'}
+    // Prepare email content - combine FDA and USDA recalls
+    const allRecalls = [
+      ...fdaRecalls.map((r: any) => ({
+        source: 'FDA',
+        product: r.product_description || 'Unknown Product',
+        reason: r.reason_for_recall || 'Not specified',
+        company: r.recalling_firm || 'Unknown',
+        date: r.report_date || 'Unknown'
+      })),
+      ...usdaRecalls.map((r: any) => ({
+        source: 'USDA',
+        product: r.field_title || 'Unknown Product',
+        reason: r.field_recall_reason || 'Not specified',
+        company: r.field_establishment || 'Unknown',
+        date: r.field_recall_date || 'Unknown'
+      }))
+    ];
+    
+    const recallList = allRecalls.slice(0, 10).map((recall, index) => 
+      `${index + 1}. [${recall.source}] ${recall.product}
+   Reason: ${recall.reason}
+   Company: ${recall.company}
+   Date: ${recall.date}
    
 `
     ).join('\n');
@@ -83,13 +141,13 @@ Dear Subscriber,
 
 This is your bi-weekly Food Safety Alert from Food Safety Plus.
 
-We found ${recalls.length} new FDA food recalls in the past 5 business days.
+We found ${fdaRecalls.length} FDA and ${usdaRecalls.length} USDA food recalls in the past 5 business days (${allRecalls.length} total).
 
 TOP 10 RECENT RECALLS:
 
 ${recallList}
 
-${recalls.length > 10 ? `... and ${recalls.length - 10} more recalls.` : ''}
+${allRecalls.length > 10 ? `... and ${allRecalls.length - 10} more recalls.` : ''}
 
 Visit https://food-safety-nextjs.vercel.app/dashboard to view all recalls and manage your alert preferences.
 
@@ -103,7 +161,7 @@ Food Safety Plus Team
         await resend.emails.send({
           from: 'Food Safety Plus <onboarding@resend.dev>',
           to: user.email!,
-          subject: `🚨 ${recalls.length} New FDA Food Recalls - Food Safety Alert`,
+          subject: `🚨 ${allRecalls.length} New Food Recalls (FDA + USDA) - Food Safety Alert`,
           text: emailContent
         });
         sent++;
@@ -113,7 +171,7 @@ Food Safety Plus Team
       }
     }
     
-    return { sent, failed, totalRecalls: recalls.length };
+    return { sent, failed, totalRecalls: allRecalls.length, fdaCount: fdaRecalls.length, usdaCount: usdaRecalls.length };
   } catch (error) {
     console.error('Error sending emails:', error);
     throw error;
@@ -128,28 +186,37 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    console.log('Starting FDA recall alert job...');
+    console.log('Starting FDA + USDA recall alert job...');
     
-    // Fetch FDA recalls
-    const recalls = await fetchFDARecalls();
-    console.log(`Found ${recalls.length} FDA recalls`);
+    // Fetch FDA and USDA recalls in parallel
+    const [fdaRecalls, usdaRecalls] = await Promise.all([
+      fetchFDARecalls(),
+      fetchUSDARecalls()
+    ]);
     
-    if (recalls.length === 0) {
+    console.log(`Found ${fdaRecalls.length} FDA recalls and ${usdaRecalls.length} USDA recalls`);
+    
+    const totalRecalls = fdaRecalls.length + usdaRecalls.length;
+    
+    if (totalRecalls === 0) {
       return NextResponse.json({
         success: true,
         message: 'No new recalls found',
-        recalls: 0,
+        fdaRecalls: 0,
+        usdaRecalls: 0,
         emailsSent: 0
       });
     }
     
     // Send emails to subscribers
-    const result = await sendEmailToSubscribers(recalls);
+    const result = await sendEmailToSubscribers(fdaRecalls, usdaRecalls);
     
     return NextResponse.json({
       success: true,
       message: 'Alert emails sent successfully',
-      recalls: result.totalRecalls,
+      totalRecalls: result.totalRecalls,
+      fdaRecalls: result.fdaCount,
+      usdaRecalls: result.usdaCount,
       emailsSent: result.sent,
       emailsFailed: result.failed,
       timestamp: new Date().toISOString()

@@ -21,6 +21,12 @@
 - [ ] Test premium upgrade flow
 
 
+## Stripe Payment System Fixes (URGENT)
+- [ ] Fix Stripe payment button not working (500 error with API key)
+- [ ] Update pricing from $9.99/month to $0.99/month
+- [ ] Verify Stripe TEST API keys are correctly loaded at runtime
+- [ ] Test complete payment flow end-to-end with test card
+
 ## Notification System Debugging
 - [ ] Check Vercel runtime logs for actual API errors
 - [x] Verify Resend API key is valid and has correct permissions

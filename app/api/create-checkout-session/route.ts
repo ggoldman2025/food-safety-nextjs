@@ -3,8 +3,16 @@ import { getServerSession } from "next-auth"
 import Stripe from "stripe"
 import { authOptions } from "@/lib/auth"
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+// Log the Stripe key for debugging (only first/last 4 chars)
+const stripeKey = process.env.STRIPE_SECRET_KEY
+if (stripeKey) {
+  console.log('[Stripe Init] Key length:', stripeKey.length)
+  console.log('[Stripe Init] Key starts with:', stripeKey.substring(0, 15))
+  console.log('[Stripe Init] Key ends with:', stripeKey.substring(stripeKey.length - 4))
+}
+
+const stripe = stripeKey
+  ? new Stripe(stripeKey, {
       apiVersion: "2025-11-17.clover",
     })
   : null

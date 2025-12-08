@@ -82,7 +82,7 @@ export default function Pricing() {
 
           <div className="p-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg border-2 border-blue-700 shadow-xl">
             <h2 className="text-2xl font-bold mb-4 text-white">Premium</h2>
-            <p className="text-4xl font-bold mb-6 text-white">$9.99<span className="text-lg text-blue-100">/month</span></p>
+            <p className="text-4xl font-bold mb-6 text-white">$0.99<span className="text-lg text-blue-100">/month</span></p>
             <ul className="space-y-3 mb-8 text-white">
               <li className="flex items-start">
                 <span className="text-yellow-300 mr-2">✓</span>
