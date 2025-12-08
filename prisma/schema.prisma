@@ -14,7 +14,6 @@ model User {
   name               String?
   role               String    @default("user")
   isPremium          Boolean   @default(false)
-  stripeCustomerId   String?
   subscriptionStatus String?
   subscriptionId     String?
   createdAt          DateTime  @default(now())
