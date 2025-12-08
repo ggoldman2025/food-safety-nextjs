@@ -3,30 +3,28 @@ import { getServerSession } from "next-auth"
 import Stripe from "stripe"
 import { authOptions } from "@/lib/auth"
 
-// Log the Stripe key for debugging (only first/last 4 chars)
-// Use STRIPE_SK_TEST to bypass Vercel's cached STRIPE_SECRET_KEY
-// Force deployment to pick up STRIPE_SK_TEST environment variable
-const stripeKey = process.env.STRIPE_SK_TEST || process.env.STRIPE_SECRET_KEY
-if (stripeKey) {
-  console.log('[Stripe Init] Key length:', stripeKey.length)
-  console.log('[Stripe Init] Key starts with:', stripeKey.substring(0, 15))
-  console.log('[Stripe Init] Key ends with:', stripeKey.substring(stripeKey.length - 4))
-}
-
-const stripe = stripeKey
-  ? new Stripe(stripeKey, {
-      apiVersion: "2025-11-17.clover",
-    })
-  : null
-
 export async function POST(req: NextRequest) {
   try {
-    if (!stripe) {
+    // Initialize Stripe at RUNTIME to ensure fresh environment variables
+    // Use STRIPE_SK_TEST to bypass Vercel's cached STRIPE_SECRET_KEY
+    const stripeKey = process.env.STRIPE_SK_TEST || process.env.STRIPE_SECRET_KEY
+    
+    if (!stripeKey) {
+      console.error('[Stripe Error] No Stripe key found in environment variables')
       return NextResponse.json(
         { error: "Stripe not configured" },
         { status: 500 }
       )
     }
+
+    // Log key info for debugging (only first/last 4 chars)
+    console.log('[Stripe Init] Key length:', stripeKey.length)
+    console.log('[Stripe Init] Key starts with:', stripeKey.substring(0, 15))
+    console.log('[Stripe Init] Key ends with:', stripeKey.substring(stripeKey.length - 4))
+
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: "2025-11-17.clover",
+    })
 
     const session = await getServerSession(authOptions)
     
