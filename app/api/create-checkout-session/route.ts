@@ -4,7 +4,8 @@ import Stripe from "stripe"
 import { authOptions } from "@/lib/auth"
 
 // Log the Stripe key for debugging (only first/last 4 chars)
-const stripeKey = process.env.STRIPE_SECRET_KEY
+// Use STRIPE_SK_TEST to bypass Vercel's cached STRIPE_SECRET_KEY
+const stripeKey = process.env.STRIPE_SK_TEST || process.env.STRIPE_SECRET_KEY
 if (stripeKey) {
   console.log('[Stripe Init] Key length:', stripeKey.length)
   console.log('[Stripe Init] Key starts with:', stripeKey.substring(0, 15))
