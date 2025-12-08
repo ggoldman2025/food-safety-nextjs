@@ -2,40 +2,10 @@
 
 import Link from "next/link"
 import { ShieldCheck } from "lucide-react"
-import { useState } from "react"
 import { useSession } from "next-auth/react"
 
 export default function Pricing() {
   const { data: session } = useSession()
-  const [loading, setLoading] = useState(false)
-
-  const handleUpgrade = async () => {
-    if (!session) {
-      // Redirect to signup if not logged in
-      window.location.href = "/signup"
-      return
-    }
-
-    setLoading(true)
-    try {
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-      })
-
-      const data = await response.json()
-
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert("Failed to create checkout session. Please try again.")
-        setLoading(false)
-      }
-    } catch (error) {
-      console.error("Checkout error:", error)
-      alert("An error occurred. Please try again.")
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -101,13 +71,21 @@ export default function Pricing() {
                 <span>Priority support</span>
               </li>
             </ul>
-            <button
-              onClick={handleUpgrade}
-              disabled={loading}
-              className="w-full px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-semibold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Loading..." : "Upgrade to Premium"}
-            </button>
+            <div className="flex justify-center">
+              <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                <input type="hidden" name="cmd" value="_s-xclick" />
+                <input type="hidden" name="hosted_button_id" value="SHHL9MDJVKZGQ" />
+                <input type="hidden" name="currency_code" value="USD" />
+                <input 
+                  type="image" 
+                  src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribe_LG.gif" 
+                  name="submit" 
+                  title="Subscribe with PayPal" 
+                  alt="Subscribe" 
+                  style={{ border: "none", cursor: "pointer" }}
+                />
+              </form>
+            </div>
           </div>
         </div>
       </main>
