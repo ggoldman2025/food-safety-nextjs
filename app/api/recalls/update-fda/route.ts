@@ -12,10 +12,30 @@ export async function POST() {
     // Save to database
     let saved = 0;
     for (const recall of fdaRecalls) {
+      // Transform FDA data to match our schema
+      const recallData = {
+        recallNumber: recall.recall_number,
+        source: 'FDA',
+        title: recall.product_description.substring(0, 255), // Truncate for title
+        productDescription: recall.product_description,
+        reasonForRecall: recall.reason_for_recall,
+        companyName: recall.company_name,
+        recallInitiationDate: parseFDADate(recall.recall_initiation_date),
+        reportDate: recall.report_date ? parseFDADate(recall.report_date) : null,
+        classification: recall.classification,
+        distributionPattern: recall.distribution_pattern,
+        state: recall.state || null,
+        productType: 'Food Product',
+        hazard: recall.reason_for_recall,
+        status: recall.status || 'Active',
+        imageUrl: null,
+        sourceUrl: `https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts`,
+      };
+      
       await prisma.recall.upsert({
-        where: { recallNumber: recall.recallNumber },
-        update: recall,
-        create: recall,
+        where: { recallNumber: recallData.recallNumber },
+        update: recallData,
+        create: recallData,
       });
       saved++;
     }
@@ -39,4 +59,12 @@ export async function POST() {
       { status: 500 }
     );
   }
+}
+
+// Parse FDA date format (YYYYMMDD) to Date object
+function parseFDADate(dateStr: string): Date {
+  const year = parseInt(dateStr.substring(0, 4));
+  const month = parseInt(dateStr.substring(4, 6)) - 1; // Month is 0-indexed
+  const day = parseInt(dateStr.substring(6, 8));
+  return new Date(year, month, day);
 }

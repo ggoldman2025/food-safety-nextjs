@@ -16,12 +16,19 @@ export async function POST() {
       const recallData = {
         recallNumber: recall.RecallNumber,
         source: 'CPSC',
+        title: recall.Title || 'Consumer Product Recall',
         productDescription: recall.Description || recall.Title,
-        company: recall.Manufacturers?.[0]?.Name || 'Unknown',
-        recallDate: recall.RecallDate,
+        reasonForRecall: recall.Hazards?.[0]?.Name || 'Safety hazard',
+        companyName: recall.Manufacturers?.[0]?.Name || 'Unknown',
+        recallInitiationDate: new Date(recall.RecallDate),
         classification: null, // CPSC doesn't use FDA classifications
-        reason: recall.Hazards?.[0]?.Name || null,
-        distribution: 'Nationwide', // CPSC recalls are typically nationwide
+        distributionPattern: 'Nationwide', // CPSC recalls are typically nationwide
+        state: null,
+        productType: 'Consumer Product',
+        hazard: recall.Hazards?.map(h => h.Name).join(', ') || null,
+        status: 'Active',
+        imageUrl: recall.Images?.[0]?.URL || null,
+        sourceUrl: recall.URL || null,
       };
       
       await prisma.recall.upsert({

@@ -12,10 +12,30 @@ export async function POST() {
     // Save to database
     let saved = 0;
     for (const recall of usdaRecalls) {
+      // Transform USDA data to match our schema
+      const recallData = {
+        recallNumber: recall.recallNumber,
+        source: 'USDA',
+        title: recall.productName || recall.summary.substring(0, 255),
+        productDescription: recall.summary || recall.pressRelease,
+        reasonForRecall: recall.reason || recall.hazard,
+        companyName: recall.companyName,
+        recallInitiationDate: new Date(recall.recallDate),
+        reportDate: null,
+        classification: mapUSDAClassification(recall.recallClass),
+        distributionPattern: recall.distribution,
+        state: recall.state || null,
+        productType: recall.productType || 'Meat/Poultry',
+        hazard: recall.hazard,
+        status: 'Active',
+        imageUrl: recall.images?.[0] || null,
+        sourceUrl: `https://www.fsis.usda.gov/recalls`,
+      };
+      
       await prisma.recall.upsert({
-        where: { recallNumber: recall.recallNumber },
-        update: recall,
-        create: recall,
+        where: { recallNumber: recallData.recallNumber },
+        update: recallData,
+        create: recallData,
       });
       saved++;
     }
@@ -39,4 +59,21 @@ export async function POST() {
       { status: 500 }
     );
   }
+}
+
+// Map USDA recall class to FDA-style classification
+function mapUSDAClassification(recallClass: string): string | null {
+  if (!recallClass) return null;
+  
+  const classUpper = recallClass.toUpperCase();
+  
+  if (classUpper.includes('I') || classUpper.includes('1')) {
+    return 'Class I';
+  } else if (classUpper.includes('II') || classUpper.includes('2')) {
+    return 'Class II';
+  } else if (classUpper.includes('III') || classUpper.includes('3')) {
+    return 'Class III';
+  }
+  
+  return null;
 }
