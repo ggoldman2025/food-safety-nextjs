@@ -1,385 +1,252 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, AlertCircle, CheckCircle, AlertTriangle, Calendar, MapPin, Building2 } from 'lucide-react';
 
 interface Recall {
   id: string;
   recallNumber: string;
-  source: string;
-  title: string;
   productDescription: string;
-  reasonForRecall: string;
-  companyName: string;
+  company: string;
+  recallDate: string;
+  source: string;
   classification: string | null;
-  distributionPattern: string | null;
-  state: string | null;
-  recallInitiationDate: string;
-  productType: string | null;
-  hazard: string | null;
-  status: string;
-  imageUrl: string | null;
-  sourceUrl: string | null;
+  reason: string | null;
+  distribution: string | null;
 }
 
-interface RecallStats {
-  total: number;
-  bySource: Record<string, number>;
-  byClassification: Record<string, number>;
-  last30Days: number;
+interface UpdateStatus {
+  fda: 'idle' | 'loading' | 'success' | 'error';
+  usda: 'idle' | 'loading' | 'success' | 'error';
+  cpsc: 'idle' | 'loading' | 'success' | 'error';
 }
 
 export default function RecallsPage() {
   const [recalls, setRecalls] = useState<Recall[]>([]);
-  const [stats, setStats] = useState<RecallStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    source: '',
-    classification: '',
-    state: '',
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [classificationFilter, setClassificationFilter] = useState('all');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    fda: 'idle',
+    usda: 'idle',
+    cpsc: 'idle',
   });
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  // Fetch recalls
   useEffect(() => {
     fetchRecalls();
-  }, [searchQuery, filters, page]);
-
-  // Fetch stats
-  useEffect(() => {
-    fetchStats();
   }, []);
 
-  async function fetchRecalls() {
+  const fetchRecalls = async () => {
     try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        query: searchQuery,
-        page: page.toString(),
-        limit: '20',
-        ...filters,
+      const response = await fetch('/api/recalls/search');
+      const data = await response.json();
+      setRecalls(data.recalls || []);
+    } catch (error) {
+      console.error('Error fetching recalls:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateRecalls = async (source: 'fda' | 'usda' | 'cpsc' | 'all') => {
+    setMessage(null);
+    
+    if (source === 'all') {
+      // Update all sources sequentially
+      await updateSingleSource('fda');
+      await updateSingleSource('usda');
+      await updateSingleSource('cpsc');
+      setMessage({ type: 'success', text: 'All recalls updated successfully!' });
+      fetchRecalls();
+    } else {
+      await updateSingleSource(source);
+      fetchRecalls();
+    }
+  };
+
+  const updateSingleSource = async (source: 'fda' | 'usda' | 'cpsc') => {
+    setUpdateStatus(prev => ({ ...prev, [source]: 'loading' }));
+    
+    try {
+      const response = await fetch(`/api/recalls/update-${source}`, {
+        method: 'POST',
       });
-
-      const response = await fetch(`/api/recalls/search?${params}`);
+      
       const data = await response.json();
-
+      
       if (data.success) {
-        setRecalls(data.recalls);
-        setTotalPages(data.totalPages);
+        setUpdateStatus(prev => ({ ...prev, [source]: 'success' }));
+        setMessage({ type: 'success', text: `${data.source}: ${data.message}` });
+      } else {
+        setUpdateStatus(prev => ({ ...prev, [source]: 'error' }));
+        setMessage({ type: 'error', text: `${data.source}: ${data.error}` });
       }
     } catch (error) {
-      console.error('Failed to fetch recalls:', error);
-    } finally {
-      setLoading(false);
+      setUpdateStatus(prev => ({ ...prev, [source]: 'error' }));
+      setMessage({ type: 'error', text: `Error updating ${source.toUpperCase()} recalls` });
     }
-  }
+  };
 
-  async function fetchStats() {
-    try {
-      const response = await fetch('/api/recalls/stats');
-      const data = await response.json();
+  const filteredRecalls = recalls.filter(recall => {
+    const matchesSearch = recall.productDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         recall.company.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSource = sourceFilter === 'all' || recall.source.toLowerCase() === sourceFilter.toLowerCase();
+    const matchesClassification = classificationFilter === 'all' || recall.classification === classificationFilter;
+    return matchesSearch && matchesSource && matchesClassification;
+  });
 
-      if (data.success) {
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    }
-  }
+  const getClassificationColor = (classification: string | null) => {
+    if (!classification) return 'bg-gray-100 text-gray-800';
+    if (classification.includes('I')) return 'bg-red-100 text-red-800';
+    if (classification.includes('II')) return 'bg-yellow-100 text-yellow-800';
+    if (classification.includes('III')) return 'bg-green-100 text-green-800';
+    return 'bg-gray-100 text-gray-800';
+  };
 
-  async function updateRecalls() {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/recalls/update?days=60');
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Successfully updated ${data.results.total} recalls!`);
-        fetchRecalls();
-        fetchStats();
-      }
-    } catch (error) {
-      console.error('Failed to update recalls:', error);
-      alert('Failed to update recalls. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function getClassificationColor(classification: string | null) {
-    switch (classification) {
-      case 'Class I':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'Class II':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'Class III':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  }
-
-  function getClassificationIcon(classification: string | null) {
-    switch (classification) {
-      case 'Class I':
-        return <AlertCircle className="w-4 h-4" />;
-      case 'Class II':
-        return <AlertTriangle className="w-4 h-4" />;
-      case 'Class III':
-        return <CheckCircle className="w-4 h-4" />;
-      default:
-        return <AlertTriangle className="w-4 h-4" />;
-    }
-  }
-
-  function getSourceColor(source: string) {
-    switch (source) {
-      case 'FDA':
-        return 'bg-blue-100 text-blue-800';
-      case 'USDA':
-        return 'bg-green-100 text-green-800';
-      case 'CPSC':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  }
+  const getStatusIcon = (status: 'idle' | 'loading' | 'success' | 'error') => {
+    if (status === 'loading') return '⏳';
+    if (status === 'success') return '✅';
+    if (status === 'error') return '❌';
+    return '';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Government Recalls</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Real-time data from FDA, USDA, and CPSC
-              </p>
-            </div>
-            <button
-              onClick={updateRecalls}
-              disabled={loading}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all"
-            >
-              {loading ? 'Updating...' : 'Update Recalls'}
-            </button>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Government Recalls</h1>
+          <p className="text-gray-600">Real-time data from FDA, USDA, and CPSC</p>
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Government APIs can be slow. Click individual buttons to update each source separately (1-2 min each), or "Update All" to fetch everything at once (3-5 min total).
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-sm font-medium text-gray-600">Total Recalls</div>
-              <div className="mt-2 text-3xl font-bold text-gray-900">{stats.total}</div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-sm font-medium text-gray-600">Last 30 Days</div>
-              <div className="mt-2 text-3xl font-bold text-blue-600">{stats.last30Days}</div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-sm font-medium text-gray-600">Class I (High Risk)</div>
-              <div className="mt-2 text-3xl font-bold text-red-600">
-                {stats.byClassification['Class I'] || 0}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-sm font-medium text-gray-600">Sources</div>
-              <div className="mt-2 flex gap-2">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                  FDA: {stats.bySource.FDA || 0}
-                </span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                  USDA: {stats.bySource.USDA || 0}
-                </span>
-                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">
-                  CPSC: {stats.bySource.CPSC || 0}
-                </span>
-              </div>
-            </div>
+        {/* Update Buttons */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => updateRecalls('fda')}
+              disabled={updateStatus.fda === 'loading'}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            >
+              {updateStatus.fda === 'loading' ? 'Updating FDA...' : 'Update FDA'}
+              {getStatusIcon(updateStatus.fda)}
+            </button>
+            
+            <button
+              onClick={() => updateRecalls('usda')}
+              disabled={updateStatus.usda === 'loading'}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            >
+              {updateStatus.usda === 'loading' ? 'Updating USDA...' : 'Update USDA'}
+              {getStatusIcon(updateStatus.usda)}
+            </button>
+            
+            <button
+              onClick={() => updateRecalls('cpsc')}
+              disabled={updateStatus.cpsc === 'loading'}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            >
+              {updateStatus.cpsc === 'loading' ? 'Updating CPSC...' : 'Update CPSC'}
+              {getStatusIcon(updateStatus.cpsc)}
+            </button>
+            
+            <button
+              onClick={() => updateRecalls('all')}
+              disabled={Object.values(updateStatus).some(s => s === 'loading')}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+            >
+              {Object.values(updateStatus).some(s => s === 'loading') ? 'Updating...' : 'Update All'}
+            </button>
           </div>
-        )}
+
+          {/* Status Message */}
+          {message && (
+            <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+              {message.text}
+            </div>
+          )}
+        </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search recalls..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Source Filter */}
-            <div>
-              <select
-                value={filters.source}
-                onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Sources</option>
-                <option value="FDA">FDA</option>
-                <option value="USDA">USDA</option>
-                <option value="CPSC">CPSC</option>
-              </select>
-            </div>
-
-            {/* Classification Filter */}
-            <div>
-              <select
-                value={filters.classification}
-                onChange={(e) => setFilters({ ...filters, classification: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Classifications</option>
-                <option value="Class I">Class I (High Risk)</option>
-                <option value="Class II">Class II (Medium Risk)</option>
-                <option value="Class III">Class III (Low Risk)</option>
-              </select>
-            </div>
-          </div>
+        <div className="mb-6 flex flex-wrap gap-4">
+          <input
+            type="text"
+            placeholder="Search recalls..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Sources</option>
+            <option value="FDA">FDA</option>
+            <option value="USDA">USDA</option>
+            <option value="CPSC">CPSC</option>
+          </select>
+          
+          <select
+            value={classificationFilter}
+            onChange={(e) => setClassificationFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Classifications</option>
+            <option value="Class I">Class I (High Risk)</option>
+            <option value="Class II">Class II (Medium Risk)</option>
+            <option value="Class III">Class III (Low Risk)</option>
+          </select>
         </div>
 
         {/* Recalls List */}
         {loading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading recalls...</p>
           </div>
-        ) : recalls.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
-            <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-lg font-medium text-gray-900">No recalls found</h3>
-            <p className="mt-1 text-sm text-gray-500">
+        ) : filteredRecalls.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow">
+            <p className="text-gray-600">No recalls found</p>
+            <p className="text-sm text-gray-500 mt-2">
               Try adjusting your search or filters, or click "Update Recalls" to fetch the latest data.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {recalls.map((recall) => (
-              <div
-                key={recall.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    {/* Header */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded ${getSourceColor(recall.source)}`}>
-                        {recall.source}
+            {filteredRecalls.map((recall) => (
+              <div key={recall.id} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{recall.productDescription}</h3>
+                    <p className="text-gray-600">{recall.company}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                      {recall.source}
+                    </span>
+                    {recall.classification && (
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getClassificationColor(recall.classification)}`}>
+                        {recall.classification}
                       </span>
-                      {recall.classification && (
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded border flex items-center gap-1 ${getClassificationColor(
-                            recall.classification
-                          )}`}
-                        >
-                          {getClassificationIcon(recall.classification)}
-                          {recall.classification}
-                        </span>
-                      )}
-                      {recall.productType && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                          {recall.productType}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{recall.title}</h3>
-
-                    {/* Company and Location */}
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center gap-1">
-                        <Building2 className="w-4 h-4" />
-                        {recall.companyName}
-                      </div>
-                      {recall.state && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {recall.state}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(recall.recallInitiationDate).toLocaleDateString()}
-                      </div>
-                    </div>
-
-                    {/* Reason */}
-                    <p className="text-sm text-gray-700 mb-2">
-                      <strong>Reason:</strong> {recall.reasonForRecall}
-                    </p>
-
-                    {/* Distribution */}
-                    {recall.distributionPattern && (
-                      <p className="text-sm text-gray-600">
-                        <strong>Distribution:</strong> {recall.distributionPattern}
-                      </p>
                     )}
                   </div>
-
-                  {/* Image */}
-                  {recall.imageUrl && (
-                    <img
-                      src={recall.imageUrl}
-                      alt={recall.title}
-                      className="w-24 h-24 object-cover rounded-lg ml-4"
-                    />
-                  )}
                 </div>
-
-                {/* Footer */}
-                <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Recall #: {recall.recallNumber}</span>
-                  {recall.sourceUrl && (
-                    <a
-                      href={recall.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      View Details →
-                    </a>
-                  )}
+                
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p><strong>Recall #:</strong> {recall.recallNumber}</p>
+                  <p><strong>Date:</strong> {new Date(recall.recallDate).toLocaleDateString()}</p>
+                  {recall.reason && <p><strong>Reason:</strong> {recall.reason}</p>}
+                  {recall.distribution && <p><strong>Distribution:</strong> {recall.distribution}</p>}
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-2">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2 text-sm text-gray-700">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
           </div>
         )}
       </div>

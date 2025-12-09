@@ -76,3 +76,12 @@
 - [ ] Implement email alerts for new high-risk recalls
 - [ ] Test all three API integrations on production
 - [ ] Deploy recall system to production
+
+## API Timeout Fix (URGENT)
+- [ ] Fix Vercel serverless function timeout issue (10s limit)
+- [ ] Split API calls into separate endpoints (FDA, USDA, CPSC)
+- [ ] Add better error handling and logging
+- [ ] Add user-friendly latency note on recalls page
+- [ ] Implement progress indicator showing which API is being called
+- [ ] Test optimized API calls on production
+- [ ] Consider implementing background job for daily updates
