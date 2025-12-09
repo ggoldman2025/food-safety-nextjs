@@ -58,7 +58,17 @@ export default function Home() {
               Food Safety Plus
             </span>
           </Link>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            <Link href="/recalls">
+              <button className="px-6 py-2.5 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm">
+                Recalls
+              </button>
+            </Link>
+            <Link href="/stores">
+              <button className="px-6 py-2.5 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm">
+                Stores
+              </button>
+            </Link>
             <Link href="/sign-in">
               <button className="px-6 py-2.5 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm">
                 Sign In

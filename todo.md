@@ -60,3 +60,19 @@
 - [ ] Add domain to Vercel project
 - [ ] Configure DNS records
 - [ ] Wait for SSL certificate
+
+## Government Recall API Integration (NEW - HIGH PRIORITY)
+- [x] Update Prisma schema to add Recall model
+- [x] Create database migration for recalls table
+- [x] Create FDA openFDA API integration service
+- [x] Create USDA FSIS API integration service
+- [x] Create CPSC API integration service
+- [x] Build API route to fetch and store recalls from all 3 sources
+- [x] Build recall dashboard UI page
+- [x] Add search and filter functionality (by product, state, date, severity)
+- [x] Add severity color coding (Class I = red, Class II = yellow, Class III = green)
+- [x] Add Recalls link to navigation menu
+- [ ] Create scheduled job to update recalls daily (cron job)
+- [ ] Implement email alerts for new high-risk recalls
+- [ ] Test all three API integrations on production
+- [ ] Deploy recall system to production

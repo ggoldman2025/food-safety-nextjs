@@ -36,14 +36,29 @@ model CompanyLink {
 }
 
 model Recall {
-  id          String    @id @default(cuid())
-  source      String
-  title       String
-  description String?
-  product     String?
-  company     String?
-  recallDate  DateTime?
-  url         String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  recallNumber          String    @unique
+  source                String    // 'FDA', 'USDA', 'CPSC'
+  title                 String
+  productDescription    String    @db.Text
+  reasonForRecall       String    @db.Text
+  companyName           String
+  classification        String?   // 'Class I', 'Class II', 'Class III'
+  distributionPattern   String?   @db.Text
+  state                 String?   // Two-letter state code
+  recallInitiationDate  DateTime
+  reportDate            DateTime?
+  productType           String?   // 'Food', 'Meat', 'Poultry', 'Consumer Product'
+  hazard                String?   @db.Text
+  status                String    @default("Active")
+  imageUrl              String?
+  sourceUrl             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([source])
+  @@index([state])
+  @@index([recallInitiationDate])
+  @@index([classification])
+  @@index([status])
 }
