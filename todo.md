@@ -35,3 +35,28 @@
 - [ ] Fix any API configuration issues
 - [ ] Test email delivery to gtgoldman@gmail.com
 - [ ] Test SMS delivery to 631-804-0212
+
+
+## Clerk Authentication Integration (NEW)
+- [ ] Install @clerk/nextjs package
+- [ ] Add Clerk provider to root layout
+- [ ] Create Clerk middleware for route protection
+- [ ] Replace /signin page with Clerk SignIn component
+- [ ] Replace /signup page with Clerk SignUp component
+- [ ] Update dashboard to use Clerk user data
+- [ ] Add sign out functionality
+- [ ] Configure Google OAuth provider
+- [ ] Configure Apple OAuth provider
+- [ ] Test complete auth flow
+
+## Database Setup (CRITICAL)
+- [ ] Create Vercel Postgres database
+- [ ] Add DATABASE_URL to environment variables
+- [ ] Run Prisma migrations
+- [ ] Test database connection
+
+## Custom Domain Setup
+- [ ] Purchase or configure custom domain
+- [ ] Add domain to Vercel project
+- [ ] Configure DNS records
+- [ ] Wait for SSL certificate

@@ -9,13 +9,17 @@ datasource db {
 
 model User {
   id                 String    @id @default(cuid())
+  clerkId            String    @unique
   email              String    @unique
-  password           String
   name               String?
+  firstName          String?
+  lastName           String?
+  imageUrl           String?
   role               String    @default("user")
   isPremium          Boolean   @default(false)
   subscriptionStatus String?
   subscriptionId     String?
+  trialEndsAt        DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
