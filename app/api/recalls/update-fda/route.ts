@@ -19,7 +19,7 @@ export async function POST() {
         title: recall.product_description.substring(0, 255), // Truncate for title
         productDescription: recall.product_description,
         reasonForRecall: recall.reason_for_recall,
-        companyName: recall.company_name,
+        companyName: recall.company_name || 'Unknown Company',
         recallInitiationDate: parseFDADate(recall.recall_initiation_date),
         reportDate: recall.report_date ? parseFDADate(recall.report_date) : null,
         classification: recall.classification,
