@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const cacheKey = `${CacheKeys.ALL_RECALLS}:${JSON.stringify(filters)}`;
     
     // Try to get from cache first
-    const cachedResults = cache.get(cacheKey);
+    const cachedResults = cache.get<any>(cacheKey);
     if (cachedResults) {
       console.log('[API] Returning cached recall search results');
       return NextResponse.json({
