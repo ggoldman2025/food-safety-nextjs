@@ -12,10 +12,22 @@ export async function POST() {
     // Save to database
     let saved = 0;
     for (const recall of cpscRecalls) {
+      // Transform CPSC data to match our schema
+      const recallData = {
+        recallNumber: recall.RecallNumber,
+        source: 'CPSC',
+        productDescription: recall.Description || recall.Title,
+        company: recall.Manufacturers?.[0]?.Name || 'Unknown',
+        recallDate: recall.RecallDate,
+        classification: null, // CPSC doesn't use FDA classifications
+        reason: recall.Hazards?.[0]?.Name || null,
+        distribution: 'Nationwide', // CPSC recalls are typically nationwide
+      };
+      
       await prisma.recall.upsert({
-        where: { recallNumber: recall.recallNumber },
-        update: recall,
-        create: recall,
+        where: { recallNumber: recallData.recallNumber },
+        update: recallData,
+        create: recallData,
       });
       saved++;
     }
