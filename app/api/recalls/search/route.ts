@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { searchRecalls, type RecallFilters } from '@/lib/recalls/recall-service';
+import { cache, CacheKeys, CacheTTL } from '@/lib/cache';
 
 /**
  * API Route: Search and filter recalls
@@ -27,10 +28,29 @@ export async function GET(request: Request) {
       filters.endDate = new Date(searchParams.get('endDate')!);
     }
 
+    // Generate cache key based on filters
+    const cacheKey = `${CacheKeys.ALL_RECALLS}:${JSON.stringify(filters)}`;
+    
+    // Try to get from cache first
+    const cachedResults = cache.get(cacheKey);
+    if (cachedResults) {
+      console.log('[API] Returning cached recall search results');
+      return NextResponse.json({
+        success: true,
+        cached: true,
+        ...cachedResults,
+      });
+    }
+
+    // If not in cache, fetch from database
     const results = await searchRecalls(filters);
+    
+    // Cache the results for 1 hour
+    cache.set(cacheKey, results, CacheTTL.MEDIUM);
 
     return NextResponse.json({
       success: true,
+      cached: false,
       ...results,
     });
   } catch (error) {

@@ -30,6 +30,36 @@ export interface USDAResponse {
 }
 
 /**
+ * Retry a fetch operation with exponential backoff
+ * @param fn Function to retry
+ * @param maxRetries Maximum number of retry attempts (default: 3)
+ * @param initialDelay Initial delay in milliseconds (default: 1000)
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt < maxRetries) {
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`[USDA API] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms delay`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
+/**
  * Fetch recent USDA meat/poultry recalls (last 30-60 days)
  * @param days Number of days to look back (default: 60)
  * @param limit Maximum number of results (default: 100)
@@ -53,34 +83,21 @@ export async function fetchUSDARecalls(days: number = 60, limit: number = 100): 
 
     console.log(`[USDA API] Fetching recalls from ${startDateStr} to ${endDateStr}`);
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      // If API returns error, try without date filters
-      console.warn(`[USDA API] Date filter failed, trying without filters`);
-      const fallbackUrl = `${baseUrl}?limit=${limit}`;
-      const fallbackResponse = await fetch(fallbackUrl, {
+    // Use retry logic with exponential backoff
+    const response = await retryWithBackoff(async () => {
+      const res = await fetch(url, {
         headers: {
           'Accept': 'application/json',
         },
+        signal: AbortSignal.timeout(30000), // 30 second timeout
       });
-
-      if (!fallbackResponse.ok) {
-        throw new Error(`USDA API error: ${fallbackResponse.status} ${fallbackResponse.statusText}`);
+      
+      if (!res.ok) {
+        throw new Error(`USDA API error: ${res.status} ${res.statusText}`);
       }
-
-      const data = await fallbackResponse.json();
       
-      // Filter by date manually if API doesn't support it
-      const filteredResults = filterRecallsByDate(data.results || data, startDate, endDate);
-      
-      console.log(`[USDA API] Found ${filteredResults.length} recalls (filtered)`);
-      return filteredResults;
-    }
+      return res;
+    }, 3, 2000); // 3 retries, starting with 2 second delay
 
     const data = await response.json();
     const results = data.results || data;
@@ -89,9 +106,47 @@ export async function fetchUSDARecalls(days: number = 60, limit: number = 100): 
 
     return Array.isArray(results) ? results : [];
   } catch (error) {
-    console.error('[USDA API] Error fetching recalls:', error);
-    // Return empty array instead of throwing to allow other APIs to continue
-    return [];
+    console.error('[USDA API] Error fetching recalls after retries:', error);
+    
+    // Try fallback URL without date filters
+    try {
+      console.log('[USDA API] Attempting fallback without date filters...');
+      const baseUrl = 'https://www.fsis.usda.gov/fsis/api/recall/v/1';
+      const fallbackUrl = `${baseUrl}?limit=${limit}`;
+      
+      const fallbackResponse = await retryWithBackoff(async () => {
+        const res = await fetch(fallbackUrl, {
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(30000),
+        });
+        
+        if (!res.ok) {
+          throw new Error(`USDA API fallback error: ${res.status} ${res.statusText}`);
+        }
+        
+        return res;
+      }, 2, 1000); // 2 retries for fallback
+      
+      const data = await fallbackResponse.json();
+      const results = data.results || data;
+      
+      // Calculate date range for manual filtering
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      // Filter by date manually if API doesn't support it
+      const filteredResults = filterRecallsByDate(results, startDate, endDate);
+      
+      console.log(`[USDA API] Found ${filteredResults.length} recalls (fallback filtered)`);
+      return filteredResults;
+    } catch (fallbackError) {
+      console.error('[USDA API] Fallback also failed:', fallbackError);
+      // Return empty array instead of throwing to allow other APIs to continue
+      return [];
+    }
   }
 }
 
