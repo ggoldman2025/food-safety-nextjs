@@ -87,8 +87,8 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 gap-10 max-w-6xl mx-auto">
             {/* Feature 1 */}
-            <div className="p-14 bg-blue-800/30 backdrop-blur-sm rounded-3xl border border-blue-600/30">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-10">
+            <div className="p-14 bg-blue-800/30 backdrop-blur-sm rounded-3xl border border-blue-600/30 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-10 mx-auto">
                 <Bell className="w-10 h-10 text-white" />
               </div>
               <h3 className="text-3xl font-bold text-white mb-8 leading-tight">
@@ -100,8 +100,8 @@ export default function Home() {
             </div>
 
             {/* Feature 2 */}
-            <div className="p-14 bg-blue-800/30 backdrop-blur-sm rounded-3xl border border-blue-600/30">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-10">
+            <div className="p-14 bg-blue-800/30 backdrop-blur-sm rounded-3xl border border-blue-600/30 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-10 mx-auto">
                 <Search className="w-10 h-10 text-white" />
               </div>
               <h3 className="text-3xl font-bold text-white mb-8 leading-tight">
